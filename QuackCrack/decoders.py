@@ -4,29 +4,45 @@ import binascii
 import urllib.parse
 from .utils import is_printable_ratio
 
+def _bytes_to_str(decoded_bytes):
+    try:
+        return decoded_bytes.decode('utf-8')
+    except UnicodeDecodeError:
+        return repr(decoded_bytes)
+
+def _add_padding(data_bytes):
+    missing_padding = (-len(data_bytes)) % 4
+    if missing_padding:
+        data_bytes += b'=' * missing_padding
+    return data_bytes
+
 def decode_base64(data):
     results = []
-    for decoder in (base64.b64decode, base64.urlsafe_b64decode):
-        try:
-            decoded = decoder(data, validate=True)
-            try:
-                decoded_str = decoded.decode('utf-8')
-            except UnicodeDecodeError:
-                decoded_str = repr(decoded)
-            results.append(('Base64', decoded_str))
-        except (binascii.Error, ValueError):
-            continue
+    if isinstance(data, str):
+        data_bytes = data.encode()
+    else:
+        data_bytes = data
+
+    try:
+        decoded = base64.b64decode(data_bytes, validate=True)
+        results.append(('Base64 standard', _bytes_to_str(decoded)))
+    except (binascii.Error, ValueError):
+        pass
+
+    try:
+        padded_data = _add_padding(data_bytes.replace(b'-', b'+').replace(b'_', b'/'))
+        decoded = base64.b64decode(padded_data, validate=True)
+        results.append(('Base64 URL-safe', _bytes_to_str(decoded)))
+    except (binascii.Error, ValueError):
+        pass
+
     return results
 
 def decode_hex(data):
     try:
         clean_data = data.replace(' ', '')
         decoded = bytes.fromhex(clean_data)
-        try:
-            decoded_str = decoded.decode('utf-8')
-        except UnicodeDecodeError:
-            decoded_str = repr(decoded)
-        return [('Hex', decoded_str)]
+        return [('Hex', _bytes_to_str(decoded))]
     except ValueError:
         return []
 

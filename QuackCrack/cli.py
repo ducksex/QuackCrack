@@ -61,7 +61,7 @@ def main():
             if best:
                 method, decoded = best
                 print(f"\n>>> Most probable decoding method: {method}")
-                print(f"Result preview:\n{decoded[:500]}\n{'-'*40}")
+                print(f"(Unreliable) Result preview:\n{decoded[:500]}\n{'-'*40}")
             else:
                 print("\n>>> No clear decoding method identified.\n")
 

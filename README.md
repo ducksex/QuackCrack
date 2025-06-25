@@ -150,13 +150,8 @@ README.md           # This stylish documentation
 Bug reports, feature requests, and pull requests are welcome!
 Please adhere to clean code practices and include tests.
 
-## 📄 License
-
-This project is licensed under the MIT License — see LICENSE for details.
-
 ## 💌 Contact & Support
 
 Made with ❤️ by DuckSex
-Find me on GitHub | Twitter
 
 

@@ -52,7 +52,7 @@ Hello world!
 ----------------------------------------
 Data to analyze > exit
 Goodbye! 🦆
-
+```
 ##🚀 Installation Guide
 ##Requirements
 
@@ -147,4 +147,5 @@ README.md           # This stylish documentation
 
 Bug reports, feature requests, and pull requests are welcome!
 Please adhere to clean code practices and include tests.
+
 

@@ -1,9 +1,9 @@
 # 🦆 QuackCrack
 
-![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/yourusername/quackcrack?style=flat-square)
+![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/ducksex/quackcrack?style=flat-square)
 ![Python Version](https://img.shields.io/badge/python-3.7%2B-blue?style=flat-square)
 ![License](https://img.shields.io/github/license/ducksex/quackcrack?style=flat-square)
-![Build Status](https://img.shields.io/github/actions/workflow/status/yourusername/quackcrack/python.yml?branch=main&style=flat-square)
+![Build Status](https://img.shields.io/github/actions/workflow/status/ducksex/quackcrack/python.yml?branch=main&style=flat-square)
 
 ---
 
@@ -71,7 +71,7 @@ Goodbye! 🦆
 
     Clone and install QuackCrack
 
-git clone https://github.com/yourusername/quackcrack.git
+git clone https://github.com/ducksex/quackcrack.git
 cd quackcrack
 pip install .
 
@@ -90,7 +90,7 @@ brew install python
 
     Clone and install QuackCrack
 
-git clone https://github.com/yourusername/quackcrack.git
+git clone https://github.com/ducksex/quackcrack.git
 cd quackcrack
 pip3 install .
 
@@ -107,7 +107,7 @@ sudo apt install python3 python3-pip git -y
 
     Clone and install QuackCrack
 
-git clone https://github.com/yourusername/quackcrack.git
+git clone https://github.com/ducksex/quackcrack.git
 cd quackcrack
 pip3 install .
 

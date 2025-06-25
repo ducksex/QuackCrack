@@ -141,7 +141,6 @@ quackcrack/
 └── __init__.py     # Package initializer
 
 setup.py            # Installation & packaging
-tests/              # Unit tests
 README.md           # This stylish documentation
 ```
 

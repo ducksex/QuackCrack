@@ -34,10 +34,7 @@ def _add_padding(data_bytes):
 
 def decode_base64(data):
     results = []
-    if isinstance(data, str):
-        data_bytes = data.encode()
-    else:
-        data_bytes = data
+    data_bytes = data.encode() if isinstance(data, str) else data
     try:
         decoded = base64.b64decode(data_bytes, validate=True)
         results.append(('Base64 standard', _bytes_to_str(decoded)))
@@ -124,10 +121,9 @@ def decode_xor(data):
 
 def decode_binary(data):
     try:
-        parts = re.findall(r'(?:[01]{8}\s*)+', data)
-        if not parts:
+        bits = ''.join(re.findall(r'[01]{8}', data))
+        if not bits:
             return []
-        bits = ''.join(re.findall(r'[01]{8}', parts[0]))
         decoded_bytes = bytes(int(bits[i:i+8], 2) for i in range(0, len(bits), 8))
         decoded_str = _bytes_to_str(decoded_bytes)
         return [('Binary', decoded_str)]
@@ -136,10 +132,9 @@ def decode_binary(data):
 
 def decode_octal(data):
     try:
-        parts = re.findall(r'(?:[0-7]{3}\s*)+', data)
-        if not parts:
+        octs = ''.join(re.findall(r'[0-7]{3}', data))
+        if not octs:
             return []
-        octs = ''.join(re.findall(r'[0-7]{3}', parts[0]))
         decoded_bytes = bytes(int(octs[i:i+3], 8) for i in range(0, len(octs), 3))
         decoded_str = _bytes_to_str(decoded_bytes)
         return [('Octal', decoded_str)]
@@ -211,6 +206,96 @@ def decode_morse(data):
     except Exception:
         return []
 
+def decode_atbash(data):
+    def atbash_char(c):
+        if c.isalpha():
+            base = ord('A') if c.isupper() else ord('a')
+            return chr(base + (25 - (ord(c) - base)))
+        return c
+    decoded = ''.join(atbash_char(c) for c in data)
+    if is_printable_ratio(decoded) > 0.85:
+        return [('Atbash', decoded)]
+    return []
+
+def decode_bacon(data):
+    data = data.strip().upper()
+    trans_table = str.maketrans({'A': '0', 'B': '1', '0': '0', '1': '1'})
+    binary = data.translate(trans_table)
+    binary = ''.join(c for c in binary if c in '01')
+    if len(binary) < 5:
+        return []
+    decoded_chars = []
+    for i in range(0, len(binary) - 4, 5):
+        chunk = binary[i:i+5]
+        val = int(chunk, 2)
+        if 0 <= val <= 25:
+            decoded_chars.append(chr(val + ord('A')))
+        else:
+            return []
+    decoded_str = ''.join(decoded_chars)
+    if is_printable_ratio(decoded_str) > 0.85:
+        return [('Bacon cipher', decoded_str)]
+    return []
+
+def decode_rex(data):
+    decoded_chars = []
+    for c in data:
+        if c.isdigit():
+            decoded_c = chr((ord(c) - ord('0') - 5) % 10 + ord('0'))
+            decoded_chars.append(decoded_c)
+        else:
+            decoded_chars.append(c)
+    decoded_str = ''.join(decoded_chars)
+    if is_printable_ratio(decoded_str) > 0.85:
+        return [('REX ROT5 digits', decoded_str)]
+    return []
+
+def decode_polybius(data):
+    try:
+        data = re.sub(r'[^1-5]', '', data)
+        if len(data) % 2 != 0:
+            return []
+        polybius_square = [
+            ['A', 'B', 'C', 'D', 'E'],
+            ['F', 'G', 'H', 'I', 'K'],
+            ['L', 'M', 'N', 'O', 'P'],
+            ['Q', 'R', 'S', 'T', 'U'],
+            ['V', 'W', 'X', 'Y', 'Z']
+        ]
+        decoded_chars = []
+        for i in range(0, len(data), 2):
+            row = int(data[i]) - 1
+            col = int(data[i+1]) - 1
+            if 0 <= row < 5 and 0 <= col < 5:
+                decoded_chars.append(polybius_square[row][col])
+            else:
+                return []
+        decoded_str = ''.join(decoded_chars)
+        if is_printable_ratio(decoded_str) > 0.85:
+            return [('Polybius square', decoded_str)]
+        return []
+    except Exception:
+        return []
+
+def decode_rail_fence(data, max_rails=5):
+    results = []
+    for rails in range(2, max_rails + 1):
+        rail = [''] * rails
+        idx, step = 0, 1
+        for c in data:
+            rail[idx] += c
+            if idx == 0:
+                step = 1
+            elif idx == rails - 1:
+                step = -1
+            idx += step
+        decoded_str = ''.join(rail)
+        if is_printable_ratio(decoded_str) > 0.85:
+            results.append((f'Rail Fence {rails} rails', decoded_str))
+            if len(results) >= 5:
+                break
+    return results
+
 def try_all_methods(data):
     all_results = []
     all_results.extend(decode_base64(data))
@@ -226,6 +311,11 @@ def try_all_methods(data):
     all_results.extend(decode_caesar(data))
     all_results.extend(decode_utf16(data))
     all_results.extend(decode_morse(data))
+    all_results.extend(decode_atbash(data))
+    all_results.extend(decode_bacon(data))
+    all_results.extend(decode_rex(data))
+    all_results.extend(decode_polybius(data))
+    all_results.extend(decode_rail_fence(data))
 
     seen = set()
     unique_results = []
@@ -240,11 +330,9 @@ def detect_most_probable(data):
     if not results:
         return None
     def score(res):
-        method, decoded = res
+        _, decoded = res
         ratio = is_printable_ratio(decoded)
         length = len(decoded)
         return (ratio, length)
     results.sort(key=score, reverse=True)
-    best = results[0]
-    return best
-
+    return results[0]

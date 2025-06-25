@@ -53,14 +53,14 @@ Hello world!
 Data to analyze > exit
 Goodbye! 🦆
 ```
-##🚀 Installation Guide
-##Requirements
+🚀 Installation Guide
+Requirements
 
     Python 3.7 or higher
 
     pip package manager
 
-##Windows
+Windows
 
     Install Python 3.7+
     Download and install from python.org.
@@ -78,7 +78,7 @@ pip install .
 
 quackcrack
 
-##macOS
+macOS
 
     Install Python 3.7+
     macOS usually ships with Python 2.x, so install Python 3 with Homebrew:
@@ -97,7 +97,7 @@ pip3 install .
 
 quackcrack
 
-##Linux (Ubuntu/Debian)
+Linux (Ubuntu/Debian)
 
     Install Python 3.7+ and pip
 
@@ -114,7 +114,7 @@ pip3 install .
 
 quackcrack
 
-##🛠 Troubleshooting
+🛠 Troubleshooting
 
     'quackcrack' is not recognized or command not found error:
     Try running Python module directly:
@@ -131,7 +131,7 @@ pip install --user .
     Git not installed?
     Install Git from git-scm.com or your OS package manager.
 
-##🏗️ Project Structure
+🏗️ Project Structure
 
 quackcrack/
 ├── cli.py          # Terminal UI & main entry point
@@ -143,9 +143,16 @@ setup.py            # Installation & packaging
 tests/              # Unit tests
 README.md           # This stylish documentation
 
-##🧑‍💻 Contributing
+🧑‍💻 Contributing
 
 Bug reports, feature requests, and pull requests are welcome!
 Please adhere to clean code practices and include tests.
+📄 License
+
+This project is licensed under the MIT License — see LICENSE for details.
+💌 Contact & Support
+
+Made with ❤️ by Your Name
+Find me on GitHub | Twitter
 
 

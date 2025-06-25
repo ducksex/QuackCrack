@@ -3,7 +3,9 @@ import codecs
 import binascii
 import urllib.parse
 import re
+from functools import wraps
 from .utils import is_printable_ratio
+import base91
 
 MORSE_CODE_DICT = {
     '.-': 'A', '-...': 'B', '-.-.': 'C', '-..': 'D', '.': 'E', '..-.': 'F',
@@ -17,6 +19,15 @@ MORSE_CODE_DICT = {
     '-...-': '=', '.-.-.': '+', '---...': ':', '-.-.-.': ';', '..--.-': '_',
     '.-..-.': '"', '...-..-': '$', '.--.-.': '@', '...---...': 'SOS'
 }
+
+def safe_decode(func):
+    @wraps(func)
+    def wrapper(data):
+        try:
+            return func(data) or []
+        except Exception:
+            return []
+    return wrapper
 
 def _bytes_to_str(decoded_bytes):
     for encoding in ('utf-8', 'latin1'):
@@ -32,6 +43,7 @@ def _add_padding(data_bytes):
         data_bytes += b'=' * missing_padding
     return data_bytes
 
+@safe_decode
 def decode_base64(data):
     results = []
     data_bytes = data.encode() if isinstance(data, str) else data
@@ -48,53 +60,77 @@ def decode_base64(data):
         pass
     return results
 
+@safe_decode
 def decode_base32(data):
-    results = []
-    try:
-        clean_data = re.sub(r'\s+', '', data).upper()
-        padded_data = clean_data + '=' * ((8 - len(clean_data) % 8) % 8)
-        decoded = base64.b32decode(padded_data, casefold=True)
-        results.append(('Base32', _bytes_to_str(decoded)))
-    except (binascii.Error, ValueError):
-        pass
-    return results
+    clean_data = re.sub(r'\s+', '', data).upper()
+    padded_data = clean_data + '=' * ((8 - len(clean_data) % 8) % 8)
+    decoded = base64.b32decode(padded_data, casefold=True)
+    return [('Base32', _bytes_to_str(decoded))]
 
+@safe_decode
 def decode_base85(data):
     results = []
-    try:
-        decoded = base64.a85decode(data, adobe=False, ignorechars=b'\n\r\t ')
-        results.append(('Base85', _bytes_to_str(decoded)))
-    except Exception:
-        pass
-    try:
-        decoded = base64.b85decode(data, ignorechars=b'\n\r\t ')
-        results.append(('Base85 (b85)', _bytes_to_str(decoded)))
-    except Exception:
-        pass
+    decoded = base64.a85decode(data, adobe=False, ignorechars=b'\n\r\t ')
+    results.append(('Base85', _bytes_to_str(decoded)))
+    decoded = base64.b85decode(data, ignorechars=b'\n\r\t ')
+    results.append(('Base85 (b85)', _bytes_to_str(decoded)))
     return results
 
+@safe_decode
+def decode_base91(data):
+    alphabet = (
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+        "!#$%&()*+,./:;<=>?@[]^_`{|}~\""
+    )
+    try:
+        import base91
+        decoded = base91.decode(data)
+        return [('Base91', _bytes_to_str(decoded))]
+    except Exception:
+        return []
+
+@safe_decode
+def decode_base58(data):
+    alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+    def b58decode(s):
+        num = 0
+        for char in s:
+            num *= 58
+            if char not in alphabet:
+                raise ValueError('Invalid character for base58')
+            num += alphabet.index(char)
+        combined = num.to_bytes((num.bit_length() + 7) // 8, byteorder='big')
+        n_pad = len(s) - len(s.lstrip('1'))
+        return b'\x00' * n_pad + combined
+    decoded = b58decode(data)
+    return [('Base58', _bytes_to_str(decoded))]
+
+@safe_decode
 def decode_hex(data):
-    try:
-        clean_data = re.sub(r'\s+', '', data)
-        decoded = bytes.fromhex(clean_data)
-        return [('Hex', _bytes_to_str(decoded))]
-    except Exception:
-        return []
+    clean_data = re.sub(r'0x|\\x|\s+', '', data)
+    decoded = bytes.fromhex(clean_data)
+    return [('Hex', _bytes_to_str(decoded))]
 
+@safe_decode
 def decode_rot13(data):
-    try:
-        decoded = codecs.decode(data, 'rot_13')
-        return [('ROT13', decoded)]
-    except Exception:
-        return []
+    decoded = codecs.decode(data, 'rot_13')
+    return [('ROT13', decoded)]
 
+@safe_decode
 def decode_url(data):
-    try:
-        decoded = urllib.parse.unquote(data)
-        return [('URL Decode', decoded)]
-    except Exception:
-        return []
+    decoded = urllib.parse.unquote(data)
+    return [('URL Decode', decoded)]
 
+@safe_decode
+def decode_url_unicode(data):
+    def replace_unicode(match):
+        codepoint = int(match.group(1), 16)
+        return chr(codepoint)
+    decoded = re.sub(r'%u([0-9A-Fa-f]{4})', replace_unicode, data)
+    decoded = urllib.parse.unquote(decoded)
+    return [('URL Unicode Decode', decoded)]
+
+@safe_decode
 def decode_xor(data):
     results = []
     raw_bytes = None
@@ -106,7 +142,6 @@ def decode_xor(data):
             raw_bytes = base64.b64decode(data)
         except Exception:
             raw_bytes = data.encode('latin1', errors='ignore')
-
     for key in range(256):
         xord = bytes(b ^ key for b in raw_bytes)
         try:
@@ -119,39 +154,34 @@ def decode_xor(data):
             break
     return results
 
+@safe_decode
 def decode_binary(data):
-    try:
-        bits = ''.join(re.findall(r'[01]{8}', data))
-        if not bits:
-            return []
-        decoded_bytes = bytes(int(bits[i:i+8], 2) for i in range(0, len(bits), 8))
-        decoded_str = _bytes_to_str(decoded_bytes)
-        return [('Binary', decoded_str)]
-    except Exception:
+    bits = ''.join(re.findall(r'[01]{8}', data))
+    if not bits:
         return []
+    decoded_bytes = bytes(int(bits[i:i+8], 2) for i in range(0, len(bits), 8))
+    decoded_str = _bytes_to_str(decoded_bytes)
+    return [('Binary', decoded_str)]
 
+@safe_decode
 def decode_octal(data):
-    try:
-        octs = ''.join(re.findall(r'[0-7]{3}', data))
-        if not octs:
-            return []
-        decoded_bytes = bytes(int(octs[i:i+3], 8) for i in range(0, len(octs), 3))
-        decoded_str = _bytes_to_str(decoded_bytes)
-        return [('Octal', decoded_str)]
-    except Exception:
+    octs = ''.join(re.findall(r'[0-7]{3}', data))
+    if not octs:
         return []
+    decoded_bytes = bytes(int(octs[i:i+3], 8) for i in range(0, len(octs), 3))
+    decoded_str = _bytes_to_str(decoded_bytes)
+    return [('Octal', decoded_str)]
 
+@safe_decode
 def decode_ascii_codes(data):
-    try:
-        parts = re.findall(r'\d{1,3}', data)
-        if not parts:
-            return []
-        decoded_chars = [chr(int(c)) for c in parts if 0 <= int(c) <= 255]
-        decoded_str = ''.join(decoded_chars)
-        return [('ASCII codes', decoded_str)]
-    except Exception:
+    parts = re.findall(r'\d{1,3}', data)
+    if not parts:
         return []
+    decoded_chars = [chr(int(c)) for c in parts if 0 <= int(c) <= 255]
+    decoded_str = ''.join(decoded_chars)
+    return [('ASCII codes', decoded_str)]
 
+@safe_decode
 def decode_caesar(data):
     results = []
     for shift in range(1, 26):
@@ -170,42 +200,41 @@ def decode_caesar(data):
                 break
     return results
 
+@safe_decode
 def decode_utf16(data):
     results = []
-    try:
-        decoded_le = data.encode('latin1').decode('utf-16le')
-        if is_printable_ratio(decoded_le) > 0.85:
-            results.append(('UTF-16 LE', decoded_le))
-    except Exception:
-        pass
-    try:
-        decoded_be = data.encode('latin1').decode('utf-16be')
-        if is_printable_ratio(decoded_be) > 0.85:
-            results.append(('UTF-16 BE', decoded_be))
-    except Exception:
-        pass
+    decoded_le = data.encode('latin1', errors='ignore').decode('utf-16le', errors='ignore')
+    if is_printable_ratio(decoded_le) > 0.85:
+        results.append(('UTF-16 LE', decoded_le))
+    decoded_be = data.encode('latin1', errors='ignore').decode('utf-16be', errors='ignore')
+    if is_printable_ratio(decoded_be) > 0.85:
+        results.append(('UTF-16 BE', decoded_be))
     return results
 
+@safe_decode
 def decode_morse(data):
     words = data.strip().split('   ')
     decoded_words = []
-    try:
-        for word in words:
-            chars = word.split()
-            decoded_chars = []
-            for c in chars:
-                decoded_char = MORSE_CODE_DICT.get(c)
-                if decoded_char is None:
-                    return []
-                decoded_chars.append(decoded_char)
-            decoded_words.append(''.join(decoded_chars))
-        decoded_str = ' '.join(decoded_words)
-        if is_printable_ratio(decoded_str) > 0.85:
-            return [('Morse', decoded_str)]
-        return []
-    except Exception:
-        return []
+    for word in words:
+        chars = word.split()
+        decoded_chars = []
+        for c in chars:
+            decoded_char = MORSE_CODE_DICT.get(c)
+            if decoded_char is None:
+                return []
+            decoded_chars.append(decoded_char)
+        decoded_words.append(''.join(decoded_chars))
+    decoded_str = ' '.join(decoded_words)
+    if is_printable_ratio(decoded_str) > 0.85:
+        return [('Morse', decoded_str)]
+    return []
 
+@safe_decode
+def decode_morse_inverted(data):
+    inverted = data.replace('.', 'x').replace('-', '.').replace('x', '-')
+    return decode_morse(inverted)
+
+@safe_decode
 def decode_atbash(data):
     def atbash_char(c):
         if c.isalpha():
@@ -217,6 +246,14 @@ def decode_atbash(data):
         return [('Atbash', decoded)]
     return []
 
+@safe_decode
+def decode_atbash_rot13(data):
+    intermediate = decode_atbash(data)
+    if intermediate:
+        return decode_rot13(intermediate[0][1])
+    return []
+
+@safe_decode
 def decode_bacon(data):
     data = data.strip().upper()
     trans_table = str.maketrans({'A': '0', 'B': '1', '0': '0', '1': '1'})
@@ -237,6 +274,7 @@ def decode_bacon(data):
         return [('Bacon cipher', decoded_str)]
     return []
 
+@safe_decode
 def decode_rex(data):
     decoded_chars = []
     for c in data:
@@ -250,33 +288,46 @@ def decode_rex(data):
         return [('REX ROT5 digits', decoded_str)]
     return []
 
-def decode_polybius(data):
-    try:
-        data = re.sub(r'[^1-5]', '', data)
-        if len(data) % 2 != 0:
-            return []
-        polybius_square = [
-            ['A', 'B', 'C', 'D', 'E'],
-            ['F', 'G', 'H', 'I', 'K'],
-            ['L', 'M', 'N', 'O', 'P'],
-            ['Q', 'R', 'S', 'T', 'U'],
-            ['V', 'W', 'X', 'Y', 'Z']
-        ]
-        decoded_chars = []
-        for i in range(0, len(data), 2):
-            row = int(data[i]) - 1
-            col = int(data[i+1]) - 1
-            if 0 <= row < 5 and 0 <= col < 5:
-                decoded_chars.append(polybius_square[row][col])
-            else:
-                return []
-        decoded_str = ''.join(decoded_chars)
-        if is_printable_ratio(decoded_str) > 0.85:
-            return [('Polybius square', decoded_str)]
-        return []
-    except Exception:
-        return []
+@safe_decode
+def decode_rot5(data):
+    decoded_chars = []
+    for c in data:
+        if c.isdigit():
+            decoded_c = chr((ord(c) - ord('0') + 5) % 10 + ord('0'))
+            decoded_chars.append(decoded_c)
+        else:
+            decoded_chars.append(c)
+    decoded_str = ''.join(decoded_chars)
+    if is_printable_ratio(decoded_str) > 0.85:
+        return [('ROT5 digits', decoded_str)]
+    return []
 
+@safe_decode
+def decode_polybius(data):
+    data = re.sub(r'[^1-5]', '', data)
+    if len(data) % 2 != 0:
+        return []
+    polybius_square = [
+        ['A', 'B', 'C', 'D', 'E'],
+        ['F', 'G', 'H', 'I', 'K'],
+        ['L', 'M', 'N', 'O', 'P'],
+        ['Q', 'R', 'S', 'T', 'U'],
+        ['V', 'W', 'X', 'Y', 'Z']
+    ]
+    decoded_chars = []
+    for i in range(0, len(data), 2):
+        row = int(data[i]) - 1
+        col = int(data[i+1]) - 1
+        if 0 <= row < 5 and 0 <= col < 5:
+            decoded_chars.append(polybius_square[row][col])
+        else:
+            return []
+    decoded_str = ''.join(decoded_chars)
+    if is_printable_ratio(decoded_str) > 0.85:
+        return [('Polybius square', decoded_str)]
+    return []
+
+@safe_decode
 def decode_rail_fence(data, max_rails=5):
     results = []
     for rails in range(2, max_rails + 1):
@@ -296,43 +347,65 @@ def decode_rail_fence(data, max_rails=5):
                 break
     return results
 
-def try_all_methods(data):
-    all_results = []
-    all_results.extend(decode_base64(data))
-    all_results.extend(decode_base32(data))
-    all_results.extend(decode_base85(data))
-    all_results.extend(decode_hex(data))
-    all_results.extend(decode_rot13(data))
-    all_results.extend(decode_url(data))
-    all_results.extend(decode_xor(data))
-    all_results.extend(decode_binary(data))
-    all_results.extend(decode_octal(data))
-    all_results.extend(decode_ascii_codes(data))
-    all_results.extend(decode_caesar(data))
-    all_results.extend(decode_utf16(data))
-    all_results.extend(decode_morse(data))
-    all_results.extend(decode_atbash(data))
-    all_results.extend(decode_bacon(data))
-    all_results.extend(decode_rex(data))
-    all_results.extend(decode_polybius(data))
-    all_results.extend(decode_rail_fence(data))
+@safe_decode
+def decode_vigenere(data, key='KEY'):
+    results = []
+    key = key.upper()
+    data = data.upper()
+    decoded_chars = []
+    for i, c in enumerate(data):
+        if c.isalpha():
+            k = ord(key[i % len(key)]) - ord('A')
+            decoded_c = chr((ord(c) - ord('A') - k) % 26 + ord('A'))
+            decoded_chars.append(decoded_c)
+        else:
+            decoded_chars.append(c)
+    decoded_str = ''.join(decoded_chars)
+    if is_printable_ratio(decoded_str) > 0.85:
+        results.append((f'Vigenère cipher with key "{key}"', decoded_str))
+    return results
 
+DECODERS = [
+    decode_base64,
+    decode_base32,
+    decode_base85,
+    decode_base91,
+    decode_base58,
+    decode_hex,
+    decode_rot13,
+    decode_url,
+    decode_url_unicode,
+    decode_xor,
+    decode_binary,
+    decode_octal,
+    decode_ascii_codes,
+    decode_caesar,
+    decode_utf16,
+    decode_morse,
+    decode_morse_inverted,
+    decode_atbash,
+    decode_atbash_rot13,
+    decode_bacon,
+    decode_rex,
+    decode_rot5,
+    decode_polybius,
+    decode_rail_fence,
+    decode_vigenere,
+]
+
+def try_all_methods(data):
+    results = []
     seen = set()
-    unique_results = []
-    for method, decoded in all_results:
-        if decoded not in seen:
-            seen.add(decoded)
-            unique_results.append((method, decoded))
-    return unique_results[:20]
+    for decoder in DECODERS:
+        for method, decoded in decoder(data):
+            if decoded not in seen:
+                seen.add(decoded)
+                results.append((method, decoded))
+    return results[:20]
 
 def detect_most_probable(data):
     results = try_all_methods(data)
     if not results:
         return None
-    def score(res):
-        _, decoded = res
-        ratio = is_printable_ratio(decoded)
-        length = len(decoded)
-        return (ratio, length)
-    results.sort(key=score, reverse=True)
+    results.sort(key=lambda res: (is_printable_ratio(res[1]), len(res[1])), reverse=True)
     return results[0]

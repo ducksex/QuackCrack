@@ -80,23 +80,6 @@ cd quackcrack
 python3 start.py
 ```
 
-# 🛠 Troubleshooting
-
-    'quackcrack' is not recognized or command not found error:
-    Try running Python module directly:
-
-python -m quackcrack.cli
-# or on Linux/macOS
-python3 -m quackcrack.cli
-
-    Permission errors during install:
-    Try adding --user flag to pip:
-
-pip install --user .
-
-    Git not installed?
-    Install Git from git-scm.com or your OS package manager.
-
 ## 🏗️ Project Structure
 ```bash
 quackcrack/

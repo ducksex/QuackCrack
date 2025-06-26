@@ -61,59 +61,24 @@ Goodbye! 🦆
 
     pip package manager
 
-# Windows
+## Linux (Ubuntu/Debian)
 
-    Install Python 3.7+
-    Download and install from python.org.
-    Make sure to check “Add Python to PATH” during installation.
-
-    Open Command Prompt (Win + R, type cmd, Enter)
-
-    Clone and install QuackCrack
-
-git clone https://github.com/ducksex/quackcrack.git
-cd quackcrack
-pip install .
-
-    Run QuackCrack
-
-quackcrack
-
-# macOS
-
-    Install Python 3.7+
-    macOS usually ships with Python 2.x, so install Python 3 with Homebrew:
-
-brew install python
-
-    Open Terminal
-
-    Clone and install QuackCrack
-
-git clone https://github.com/ducksex/quackcrack.git
-cd quackcrack
-pip3 install .
-
-    Run QuackCrack
-
-quackcrack
-
-# Linux (Ubuntu/Debian)
-
-    Install Python 3.7+ and pip
-
+# 1. Installer Python 3.7+ et pip
+```bash
 sudo apt update
 sudo apt install python3 python3-pip git -y
+```
 
-    Clone and install QuackCrack
-
+# 2. Cloner le dépôt QuackCrack
+```bash
 git clone https://github.com/ducksex/quackcrack.git
 cd quackcrack
-pip3 install .
+```
 
-    Run QuackCrack
-
-quackcrack
+# 3. Lancer QuackCrack
+```bash
+python3 start.py
+```
 
 # 🛠 Troubleshooting
 
